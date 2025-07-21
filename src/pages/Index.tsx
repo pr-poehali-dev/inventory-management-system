@@ -26,6 +26,19 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('inventory');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
+  // Поиск и фильтры
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Все');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Новая позиция
+  const [newItem, setNewItem] = useState({
+    name: '',
+    category: '',
+    count: 0
+  });
+  
   // Начальные данные инвентаря
   const [inventory, setInventory] = useState<InventoryItem[]>([
     { id: '1', name: 'Вилки', count: 120, category: 'Столовые приборы' },
@@ -63,10 +76,51 @@ const Index = () => {
     { week: 'Нед 4', total: 715, вилки: 115, ножи: 120, ложки: 245, тарелки: 195 }
   ];
 
+  // Фильтрация инвентаря
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'Все' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   const updateItemCount = (id: string, newCount: number) => {
     setInventory(prev => prev.map(item => 
       item.id === id ? { ...item, count: Math.max(0, newCount) } : item
     ));
+  };
+
+  const addNewItem = () => {
+    if (newItem.name && newItem.category) {
+      const id = Date.now().toString();
+      setInventory(prev => [...prev, { ...newItem, id }]);
+      setNewItem({ name: '', category: '', count: 0 });
+      setShowAddForm(false);
+    }
+  };
+
+  const deleteSelectedItems = () => {
+    setInventory(prev => prev.filter(item => !selectedItems.has(item.id)));
+    setSelectedItems(new Set());
+  };
+
+  const toggleItemSelection = (id: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllItems = () => {
+    if (selectedItems.size === filteredInventory.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredInventory.map(item => item.id)));
+    }
   };
 
   const getTotalItems = () => inventory.reduce((sum, item) => sum + item.count, 0);
@@ -75,7 +129,7 @@ const Index = () => {
     inventory.filter(item => item.category === category)
              .reduce((sum, item) => sum + item.count, 0);
 
-  const categories = Array.from(new Set(inventory.map(item => item.category)));
+  const categories = ['Все', ...Array.from(new Set(inventory.map(item => item.category)))];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -129,15 +183,118 @@ const Index = () => {
               <div className="lg:col-span-2">
                 <Card className="shadow-lg border-0">
                   <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                    <CardTitle className="flex items-center">
-                      <Icon name="ClipboardList" className="mr-2" size={24} />
-                      Учет посуды и приборов
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Icon name="ClipboardList" className="mr-2" size={24} />
+                        Учет посуды и приборов
+                      </div>
+                      <Button 
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        variant="outline"
+                        className="bg-white text-blue-600 hover:bg-blue-50 border-white"
+                        size="sm"
+                      >
+                        <Icon name="Plus" className="mr-1" size={16} />
+                        Добавить
+                      </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
+                    {/* Панель поиска и фильтров */}
+                    <div className="mb-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <div className="relative">
+                            <Icon name="Search" className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                            <Input
+                              placeholder="Поиск по названию..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+                        <select 
+                          value={selectedCategory} 
+                          onChange={(e) => setSelectedCategory(e.target.value)}
+                          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {categories.map(category => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {/* Массовые операции */}
+                      {selectedItems.size > 0 && (
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border">
+                          <span className="text-sm font-medium text-blue-700">
+                            Выбрано: {selectedItems.size} элементов
+                          </span>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={deleteSelectedItems}
+                            className="ml-auto"
+                          >
+                            <Icon name="Trash2" className="mr-1" size={14} />
+                            Удалить
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Форма добавления */}
+                    {showAddForm && (
+                      <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                        <h3 className="text-lg font-medium mb-3">Добавить новую позицию</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <Input
+                            placeholder="Название"
+                            value={newItem.name}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                          />
+                          <select 
+                            value={newItem.category} 
+                            onChange={(e) => setNewItem(prev => ({ ...prev, category: e.target.value }))}
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Категория</option>
+                            <option value="Столовые приборы">Столовые приборы</option>
+                            <option value="Посуда">Посуда</option>
+                            <option value="Специальные инструменты">Специальные инструменты</option>
+                            <option value="Оборудование">Оборудование</option>
+                          </select>
+                          <Input
+                            type="number"
+                            placeholder="Количество"
+                            value={newItem.count}
+                            onChange={(e) => setNewItem(prev => ({ ...prev, count: parseInt(e.target.value) || 0 }))}
+                          />
+                          <div className="flex gap-2">
+                            <Button onClick={addNewItem} className="flex-1">
+                              <Icon name="Check" className="mr-1" size={14} />
+                              Добавить
+                            </Button>
+                            <Button onClick={() => setShowAddForm(false)} variant="outline">
+                              <Icon name="X" size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedItems.size === filteredInventory.length && filteredInventory.length > 0}
+                              onChange={selectAllItems}
+                              className="rounded"
+                            />
+                          </TableHead>
                           <TableHead>Наименование</TableHead>
                           <TableHead>Категория</TableHead>
                           <TableHead>Количество</TableHead>
@@ -145,8 +302,16 @@ const Index = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {inventory.map((item) => (
+                        {filteredInventory.map((item) => (
                           <TableRow key={item.id} className="hover:bg-gray-50">
+                            <TableCell>
+                              <input 
+                                type="checkbox" 
+                                checked={selectedItems.has(item.id)}
+                                onChange={() => toggleItemSelection(item.id)}
+                                className="rounded"
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>
                               <Badge variant="secondary">{item.category}</Badge>
@@ -181,6 +346,13 @@ const Index = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    
+                    {filteredInventory.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <Icon name="Package" className="mx-auto mb-2" size={48} />
+                        <p>Ничего не найдено</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
