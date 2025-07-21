@@ -187,6 +187,59 @@ const Index = () => {
       };
     });
   };
+  
+  // Данные для общей сводки
+  const getSummaryData = () => {
+    const portItems = restaurantData['PORT'] || [];
+    const dickensItems = restaurantData['Диккенс'] || [];
+    
+    const allItemNames = Array.from(new Set([
+      ...portItems.map(item => item.name),
+      ...dickensItems.map(item => item.name)
+    ]));
+    
+    return allItemNames.map(name => {
+      const portItem = portItems.find(item => item.name === name);
+      const dickensItem = dickensItems.find(item => item.name === name);
+      const portCount = portItem ? portItem.count : 0;
+      const dickensCount = dickensItem ? dickensItem.count : 0;
+      const totalCount = portCount + dickensCount;
+      const category = portItem?.category || dickensItem?.category || 'Неопределенная';
+      
+      return {
+        name,
+        category,
+        port: portCount,
+        dickens: dickensCount,
+        total: totalCount,
+        availability: totalCount > 0 ? 'В наличии' : 'Отсутствует'
+      };
+    }).sort((a, b) => b.total - a.total); // Сортировка по общему количеству
+  };
+  
+  // Статистика по категориям
+  const getCategorySummary = () => {
+    const summaryData = getSummaryData();
+    const categories = Array.from(new Set(summaryData.map(item => item.category)));
+    
+    return categories.map(category => {
+      const categoryItems = summaryData.filter(item => item.category === category);
+      const totalItems = categoryItems.reduce((sum, item) => sum + item.total, 0);
+      const portTotal = categoryItems.reduce((sum, item) => sum + item.port, 0);
+      const dickensTotal = categoryItems.reduce((sum, item) => sum + item.dickens, 0);
+      
+      return {
+        category,
+        itemsCount: categoryItems.length,
+        total: totalItems,
+        port: portTotal,
+        dickens: dickensTotal,
+        distribution: portTotal + dickensTotal > 0 
+          ? `PORT: ${Math.round((portTotal / (portTotal + dickensTotal)) * 100)}% / Диккенс: ${Math.round((dickensTotal / (portTotal + dickensTotal)) * 100)}%`
+          : 'Нет данных'
+      };
+    }).sort((a, b) => b.total - a.total);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -260,10 +313,14 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-5 mb-8 bg-white shadow-sm">
+          <TabsList className="grid grid-cols-6 mb-8 bg-white shadow-sm">
             <TabsTrigger value="inventory" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
               <Icon name="Package" className="mr-2" size={18} />
               Инвентаризация
+            </TabsTrigger>
+            <TabsTrigger value="summary" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+              <Icon name="Calculator" className="mr-2" size={18} />
+              Общая сводка
             </TabsTrigger>
             <TabsTrigger value="reports" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
               <Icon name="BarChart3" className="mr-2" size={18} />
@@ -560,6 +617,182 @@ const Index = () => {
               </div>
             </div>
             )}
+          </TabsContent>
+
+          {/* Общая сводка */}
+          <TabsContent value="summary">
+            <div className="space-y-6">
+              {/* Общая статистика */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-600">Общий итог</p>
+                        <p className="text-3xl font-bold text-blue-800">
+                          {getTotalItems('PORT') + getTotalItems('Диккенс')}
+                        </p>
+                      </div>
+                      <Icon name="Calculator" className="text-blue-500" size={32} />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-purple-600">PORT</p>
+                        <p className="text-3xl font-bold text-purple-800">{getTotalItems('PORT')}</p>
+                      </div>
+                      <Icon name="Anchor" className="text-purple-500" size={32} />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600">Диккенс</p>
+                        <p className="text-3xl font-bold text-orange-800">{getTotalItems('Диккенс')}</p>
+                      </div>
+                      <Icon name="BookOpen" className="text-orange-500" size={32} />
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-600">Наименований</p>
+                        <p className="text-3xl font-bold text-green-800">{getSummaryData().length}</p>
+                      </div>
+                      <Icon name="Package" className="text-green-500" size={32} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Сводка по категориям */}
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                  <CardTitle className="flex items-center">
+                    <Icon name="PieChart" className="mr-2" size={24} />
+                    Сводка по категориям
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {getCategorySummary().map((cat, index) => (
+                      <div key={index} className="p-4 bg-gray-50 rounded-lg border">
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className="font-semibold text-gray-800">{cat.category}</h3>
+                          <Badge className="bg-purple-100 text-purple-800">
+                            {cat.total} шт.
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <p>Позиций: {cat.itemsCount}</p>
+                          <p className="text-xs">{cat.distribution}</p>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs bg-blue-50">
+                            PORT: {cat.port}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-orange-50">
+                            Диккенс: {cat.dickens}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Полная сводка */}
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <CardTitle className="flex items-center">
+                    <Icon name="Table" className="mr-2" size={24} />
+                    Полная сводка по наименованиям
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Наименование</TableHead>
+                        <TableHead>Категория</TableHead>
+                        <TableHead className="text-center">PORT</TableHead>
+                        <TableHead className="text-center">Диккенс</TableHead>
+                        <TableHead className="text-center">Общий итог</TableHead>
+                        <TableHead className="text-center">Статус</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getSummaryData().map((item, index) => (
+                        <TableRow key={index} className="hover:bg-gray-50">
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="text-xs">
+                              {item.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                              {item.port}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                              {item.dickens}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge 
+                              className={`text-white ${
+                                item.total > 100 ? 'bg-green-500' :
+                                item.total > 50 ? 'bg-yellow-500' :
+                                item.total > 0 ? 'bg-orange-500' : 'bg-red-500'
+                              }`}
+                            >
+                              {item.total}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.total === 0 ? (
+                              <div className="flex items-center justify-center">
+                                <Icon name="AlertCircle" className="text-red-500 mr-1" size={16} />
+                                <span className="text-red-600 text-xs">Отсутствует</span>
+                              </div>
+                            ) : item.total < 20 ? (
+                              <div className="flex items-center justify-center">
+                                <Icon name="AlertTriangle" className="text-yellow-500 mr-1" size={16} />
+                                <span className="text-yellow-600 text-xs">Мало</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <Icon name="CheckCircle" className="text-green-500 mr-1" size={16} />
+                                <span className="text-green-600 text-xs">Норма</span>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  
+                  {getSummaryData().length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Icon name="Database" className="mx-auto mb-2" size={48} />
+                      <p>Нет данных для отображения</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Отчеты */}
