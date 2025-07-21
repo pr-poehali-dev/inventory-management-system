@@ -22,15 +22,21 @@ interface WeeklyData {
   changes: { [key: string]: number };
 }
 
+interface RestaurantData {
+  [key: string]: InventoryItem[];
+}
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState('inventory');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedRestaurant, setSelectedRestaurant] = useState('PORT');
   
   // Поиск и фильтры
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
   
   // Новая позиция
   const [newItem, setNewItem] = useState({
@@ -39,18 +45,34 @@ const Index = () => {
     count: 0
   });
   
-  // Начальные данные инвентаря
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: '1', name: 'Вилки', count: 120, category: 'Столовые приборы' },
-    { id: '2', name: 'Нож салатный', count: 80, category: 'Столовые приборы' },
-    { id: '3', name: 'Нож стейковый', count: 45, category: 'Столовые приборы' },
-    { id: '4', name: 'Ложка', count: 100, category: 'Столовые приборы' },
-    { id: '5', name: 'Чайная ложка', count: 150, category: 'Столовые приборы' },
-    { id: '6', name: 'Тарелки', count: 200, category: 'Посуда' },
-    { id: '7', name: 'Щипцы под лед', count: 12, category: 'Специальные инструменты' },
-    { id: '8', name: 'Щипцы под сахар', count: 8, category: 'Специальные инструменты' },
-    { id: '9', name: 'Кулеры', count: 6, category: 'Оборудование' }
-  ]);
+  // Данные по ресторанам
+  const [restaurantData, setRestaurantData] = useState<RestaurantData>({
+    'PORT': [
+      { id: '1', name: 'Вилки', count: 120, category: 'Столовые приборы' },
+      { id: '2', name: 'Нож салатный', count: 80, category: 'Столовые приборы' },
+      { id: '3', name: 'Нож стейковый', count: 45, category: 'Столовые приборы' },
+      { id: '4', name: 'Ложка', count: 100, category: 'Столовые приборы' },
+      { id: '5', name: 'Чайная ложка', count: 150, category: 'Столовые приборы' },
+      { id: '6', name: 'Тарелки', count: 200, category: 'Посуда' },
+      { id: '7', name: 'Щипцы под лед', count: 12, category: 'Специальные инструменты' },
+      { id: '8', name: 'Щипцы под сахар', count: 8, category: 'Специальные инструменты' },
+      { id: '9', name: 'Кулеры', count: 6, category: 'Оборудование' }
+    ],
+    'Диккенс': [
+      { id: '10', name: 'Вилки', count: 95, category: 'Столовые приборы' },
+      { id: '11', name: 'Нож салатный', count: 65, category: 'Столовые приборы' },
+      { id: '12', name: 'Нож стейковый', count: 38, category: 'Столовые приборы' },
+      { id: '13', name: 'Ложка', count: 85, category: 'Столовые приборы' },
+      { id: '14', name: 'Чайная ложка', count: 125, category: 'Столовые приборы' },
+      { id: '15', name: 'Тарелки', count: 170, category: 'Посуда' },
+      { id: '16', name: 'Щипцы под лед', count: 8, category: 'Специальные инструменты' },
+      { id: '17', name: 'Щипцы под сахар', count: 6, category: 'Специальные инструменты' },
+      { id: '18', name: 'Кулеры', count: 4, category: 'Оборудование' }
+    ]
+  });
+  
+  // Текущий инвентарь
+  const inventory = restaurantData[selectedRestaurant] || [];
 
   // Генерация воскресений до декабря 2025
   const generateSundays = () => {
@@ -84,22 +106,31 @@ const Index = () => {
   });
 
   const updateItemCount = (id: string, newCount: number) => {
-    setInventory(prev => prev.map(item => 
-      item.id === id ? { ...item, count: Math.max(0, newCount) } : item
-    ));
+    setRestaurantData(prev => ({
+      ...prev,
+      [selectedRestaurant]: prev[selectedRestaurant].map(item => 
+        item.id === id ? { ...item, count: Math.max(0, newCount) } : item
+      )
+    }));
   };
 
   const addNewItem = () => {
     if (newItem.name && newItem.category) {
       const id = Date.now().toString();
-      setInventory(prev => [...prev, { ...newItem, id }]);
+      setRestaurantData(prev => ({
+        ...prev,
+        [selectedRestaurant]: [...prev[selectedRestaurant], { ...newItem, id }]
+      }));
       setNewItem({ name: '', category: '', count: 0 });
       setShowAddForm(false);
     }
   };
 
   const deleteSelectedItems = () => {
-    setInventory(prev => prev.filter(item => !selectedItems.has(item.id)));
+    setRestaurantData(prev => ({
+      ...prev,
+      [selectedRestaurant]: prev[selectedRestaurant].filter(item => !selectedItems.has(item.id))
+    }));
     setSelectedItems(new Set());
   };
 
@@ -123,13 +154,39 @@ const Index = () => {
     }
   };
 
-  const getTotalItems = () => inventory.reduce((sum, item) => sum + item.count, 0);
+  const getTotalItems = (restaurant?: string) => {
+    const data = restaurant ? restaurantData[restaurant] || [] : inventory;
+    return data.reduce((sum, item) => sum + item.count, 0);
+  };
   
   const getCategoryTotal = (category: string) => 
     inventory.filter(item => item.category === category)
              .reduce((sum, item) => sum + item.count, 0);
 
   const categories = ['Все', ...Array.from(new Set(inventory.map(item => item.category)))];
+  
+  // Данные для сравнения
+  const getComparisonData = () => {
+    const portItems = restaurantData['PORT'] || [];
+    const dickensItems = restaurantData['Диккенс'] || [];
+    
+    const allItemNames = Array.from(new Set([
+      ...portItems.map(item => item.name),
+      ...dickensItems.map(item => item.name)
+    ]));
+    
+    return allItemNames.map(name => {
+      const portItem = portItems.find(item => item.name === name);
+      const dickensItem = dickensItems.find(item => item.name === name);
+      
+      return {
+        name,
+        port: portItem ? portItem.count : 0,
+        dickens: dickensItem ? dickensItem.count : 0,
+        difference: (portItem ? portItem.count : 0) - (dickensItem ? dickensItem.count : 0)
+      };
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -140,15 +197,65 @@ const Index = () => {
             Система инвентаризации
           </h1>
           <p className="text-lg text-gray-600">Рестораны Порт и Диккенс</p>
+          
+          {/* Переключатель ресторанов */}
+          <div className="mt-6 flex justify-center">
+            <div className="flex bg-white rounded-lg shadow-md p-1 border">
+              <Button 
+                onClick={() => setSelectedRestaurant('PORT')}
+                variant={selectedRestaurant === 'PORT' ? 'default' : 'ghost'}
+                className={`px-6 py-2 rounded-md transition-all ${selectedRestaurant === 'PORT' 
+                  ? 'bg-blue-500 text-white shadow-sm' 
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                <Icon name="Anchor" className="mr-2" size={18} />
+                PORT
+              </Button>
+              <Button 
+                onClick={() => setSelectedRestaurant('Диккенс')}
+                variant={selectedRestaurant === 'Диккенс' ? 'default' : 'ghost'}
+                className={`px-6 py-2 rounded-md transition-all ${selectedRestaurant === 'Диккенс' 
+                  ? 'bg-blue-500 text-white shadow-sm' 
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                <Icon name="BookOpen" className="mr-2" size={18} />
+                Диккенс
+              </Button>
+              <Button 
+                onClick={() => setShowComparison(!showComparison)}
+                variant={showComparison ? 'default' : 'ghost'}
+                className={`px-6 py-2 rounded-md transition-all ${showComparison
+                  ? 'bg-green-500 text-white shadow-sm' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                <Icon name="GitCompare" className="mr-2" size={18} />
+                Сравнение
+              </Button>
+            </div>
+          </div>
+          
           <div className="mt-4 flex justify-center gap-4">
             <Badge variant="outline" className="text-blue-600 border-blue-200">
               <Icon name="Utensils" className="mr-1" size={16} />
-              Всего приборов: {getTotalItems()}
+              {showComparison ? `Общий итог` : `${selectedRestaurant}: ${getTotalItems()} приборов`}
             </Badge>
             <Badge variant="outline" className="text-green-600 border-green-200">
               <Icon name="Calendar" className="mr-1" size={16} />
               Дата: {new Date().toLocaleDateString('ru-RU')}
             </Badge>
+            {showComparison && (
+              <>
+                <Badge variant="outline" className="text-purple-600 border-purple-200">
+                  PORT: {getTotalItems('PORT')}
+                </Badge>
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  Диккенс: {getTotalItems('Диккенс')}
+                </Badge>
+              </>
+            )}
           </div>
         </div>
 
@@ -178,6 +285,69 @@ const Index = () => {
 
           {/* Инвентаризация */}
           <TabsContent value="inventory">
+            {showComparison ? (
+              /* Режим сравнения */
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+                  <CardTitle className="flex items-center">
+                    <Icon name="GitCompare" className="mr-2" size={24} />
+                    Сравнение ресторанов
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Наименование</TableHead>
+                        <TableHead className="text-center">PORT</TableHead>
+                        <TableHead className="text-center">Диккенс</TableHead>
+                        <TableHead className="text-center">Разность</TableHead>
+                        <TableHead className="text-center">Статус</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getComparisonData().map((item, index) => (
+                        <TableRow key={index} className="hover:bg-gray-50">
+                          <TableCell className="font-medium">{item.name}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                              {item.port}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                              {item.dickens}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge 
+                              variant="outline" 
+                              className={item.difference > 0 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : item.difference < 0
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-gray-50 text-gray-700'
+                              }
+                            >
+                              {item.difference > 0 ? '+' : ''}{item.difference}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {Math.abs(item.difference) > 10 ? (
+                              <Icon name="AlertTriangle" className="text-yellow-500" size={20} />
+                            ) : Math.abs(item.difference) > 20 ? (
+                              <Icon name="AlertCircle" className="text-red-500" size={20} />
+                            ) : (
+                              <Icon name="CheckCircle" className="text-green-500" size={20} />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Основная таблица */}
               <div className="lg:col-span-2">
@@ -389,6 +559,7 @@ const Index = () => {
                 </Card>
               </div>
             </div>
+            )}
           </TabsContent>
 
           {/* Отчеты */}
